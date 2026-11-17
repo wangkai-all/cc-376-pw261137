@@ -1,0 +1,17 @@
+{
+  "name": "revocation-console",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "数据批次撤销传播与修正发布处置台",
+  "scripts": {
+    "start": "node scripts/start.js",
+    "seed": "node scripts/seed.js",
+    "simulate": "node scripts/simulate.js",
+    "test": "node --test",
+    "check": "node --check src/services/quality.js && node --check public/app.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  }
+}

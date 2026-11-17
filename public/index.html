@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>撤销传播处置台</title>
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body class="viz-root">
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <div>
+      <h1>撤销传播处置台</h1>
+      <p class="sub">质量批次撤销 · 影响跟踪 · 修正发布 · 消费核对</p>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn" id="refresh-btn" type="button">刷新</button>
+    <button class="btn primary" id="open-case-btn" type="button">发起撤销</button>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="主要区域">
+  <button role="tab" class="tab" aria-selected="true" data-view="overview" id="tab-overview">总览</button>
+  <button role="tab" class="tab" aria-selected="false" data-view="cases" id="tab-cases">处置单</button>
+  <button role="tab" class="tab" aria-selected="false" data-view="batches" id="tab-batches">批次与发布</button>
+  <button role="tab" class="tab" aria-selected="false" data-view="consumers" id="tab-consumers">消费端与导出</button>
+</nav>
+
+<main id="main">
+  <!-- ══════════════ overview ══════════════ -->
+  <section class="view" id="view-overview" role="tabpanel" aria-labelledby="tab-overview">
+    <div class="kpis" id="kpis"></div>
+
+    <div class="grid-2">
+      <article class="card">
+        <header class="card-head">
+          <h2>影响处置状态</h2>
+          <p class="muted">可逆汇总直接反向贡献；不可逆导出只能通知重建，并保留“未处理”标记。</p>
+        </header>
+        <div id="impact-bars" class="bars"></div>
+        <div class="table-wrap">
+          <table class="data" id="impact-table">
+            <caption class="sr-only">按处置目标汇总的工作项状态</caption>
+            <thead><tr><th>目标</th><th>可逆性</th><th class="num">工作项</th><th class="num">已处理</th><th class="num">未处理</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="card">
+        <header class="card-head">
+          <h2>区域汇总（可逆汇总当前值）</h2>
+          <p class="muted">按区域对比当前汇总金额；撤销与回补均按行重算，重放不会重复扣减。</p>
+        </header>
+        <div id="region-chart" class="bars"></div>
+        <div class="table-wrap">
+          <table class="data" id="region-table">
+            <caption class="sr-only">各区域汇总金额与贡献行数</caption>
+            <thead><tr><th>区域</th><th class="num">金额合计</th><th class="num">数量合计</th><th class="num">贡献行</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </article>
+    </div>
+
+    <article class="card">
+      <header class="card-head">
+        <h2>进行中的处置单</h2>
+        <p class="muted">未处理的不可逆导出一律列出，不因“已通知”而视为完成。</p>
+      </header>
+      <div id="open-cases" class="case-list"></div>
+    </article>
+
+    <article class="card">
+      <header class="card-head">
+        <h2>尚未处理的影响</h2>
+        <p class="muted">逐项列出未核销的影响；确认丢失的不可逆导出会一直显示，直到修正版导出核对通过。</p>
+      </header>
+      <div id="unhandled-list" class="unhandled-list"></div>
+    </article>
+  </section>
+
+  <!-- ══════════════ cases ══════════════ -->
+  <section class="view hidden" id="view-cases" role="tabpanel" aria-labelledby="tab-cases">
+    <div class="split">
+      <aside class="card case-rail">
+        <header class="card-head"><h2>处置单</h2></header>
+        <ul id="case-rail" class="rail-list"></ul>
+      </aside>
+      <div id="case-detail" class="case-detail">
+        <p class="empty">选择左侧处置单查看影响传播与核对。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════ batches ══════════════ -->
+  <section class="view hidden" id="view-batches" role="tabpanel" aria-labelledby="tab-batches">
+    <div class="split">
+      <article class="card">
+        <header class="card-head">
+          <h2>批次</h2>
+          <p class="muted">修正版批次由处置单发布，不接受普通导入。</p>
+        </header>
+        <div class="table-wrap">
+          <table class="data" id="batch-table">
+            <thead><tr><th>批次</th><th>来源</th><th>状态</th><th class="num">行数</th><th class="num">金额合计</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </article>
+      <article class="card">
+        <header class="card-head">
+          <h2>正常批次导入</h2>
+          <p class="muted">用于演示处置期间正常新批次到达；消费端会立即消费新批次。</p>
+        </header>
+        <form id="ingest-form" class="form">
+          <label>批次号 <input name="batch_id" required pattern="[A-Za-z0-9._-]{3,64}" placeholder="B-2026-105"></label>
+          <label>来源 <input name="origin" required value="producer-erp"></label>
+          <label>行数据（CSV：row_id,region,qty,unit_price[,amount]）
+            <textarea name="rows" rows="5" required>N-5001,华东,12,30
+N-5002,华南,6,45.5</textarea>
+          </label>
+          <div class="form-actions">
+            <button class="btn primary" type="submit">导入并发布</button>
+            <span class="muted" id="ingest-hint"></span>
+          </div>
+        </form>
+      </article>
+    </div>
+  </section>
+
+  <!-- ══════════════ consumers ══════════════ -->
+  <section class="view hidden" id="view-consumers" role="tabpanel" aria-labelledby="tab-consumers">
+    <div class="grid-2">
+      <article class="card">
+        <header class="card-head">
+          <h2>消费端消费状态</h2>
+          <p class="muted">可逆汇总（region-summary）与不可逆导出（workbook-export）分开统计。</p>
+        </header>
+        <div id="consume-counts" class="table-wrap"></div>
+        <div class="form-actions">
+          <select id="consume-consumer" aria-label="消费端">
+            <option value="region-summary">region-summary（可逆汇总）</option>
+            <option value="workbook-export">workbook-export（不可逆导出）</option>
+          </select>
+          <select id="consume-batch" aria-label="批次"></select>
+          <button class="btn" id="consume-btn" type="button">让消费端消费</button>
+        </div>
+        <p class="muted" id="consume-hint"></p>
+      </article>
+      <article class="card">
+        <header class="card-head">
+          <h2>导出文件（不可变）</h2>
+          <p class="muted">旧导出不删除、不改写；失效后仍可下载审计，修正版另存新文件。</p>
+        </header>
+        <div class="table-wrap">
+          <table class="data" id="artifact-table">
+            <thead><tr><th>文件</th><th>状态</th><th class="num">行数</th><th>哈希</th><th></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </article>
+    </div>
+    <article class="card">
+      <header class="card-head">
+        <h2>导出下载</h2>
+        <p class="muted">下载前校验内容哈希，记录被篡改时拒绝下发。</p>
+      </header>
+      <div id="artifact-dl" class="dl-list"></div>
+    </article>
+  </section>
+</main>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<dialog id="open-case-dialog">
+  <form method="dialog" class="form" id="open-case-form">
+    <header class="card-head">
+      <h2>发起撤销</h2>
+      <p class="muted">对已发布批次标记关键字段错误，并按真实消费记录生成传播工作项。</p>
+    </header>
+    <label>批次 <select name="batch_id" required></select></label>
+    <label>错误字段
+      <select name="bad_field" required>
+        <option value="amount">amount（金额）</option>
+        <option value="qty">qty（数量）</option>
+        <option value="unit_price">unit_price（单价）</option>
+        <option value="region">region（区域）</option>
+      </select>
+    </label>
+    <label>原因 <textarea name="reason" rows="3" required maxlength="1000" placeholder="上游导出脚本金额多乘 10；下游华东汇总与工作簿导出已使用。"></textarea></label>
+    <div class="form-actions">
+      <button class="btn" value="cancel" type="button" id="cancel-open-case">取消</button>
+      <button class="btn danger" value="confirm" type="submit">确认撤销</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="correction-dialog">
+  <form method="dialog" class="form">
+    <header class="card-head">
+      <h2>发布修正版</h2>
+      <p class="muted">修正版是新的批次，不覆盖原批次；原导出保留失效标记，修正导出另行生成。</p>
+    </header>
+    <input type="hidden" name="case_id">
+    <label>新批次号 <input name="new_batch_id" required pattern="[A-Za-z0-9._-]{3,64}"></label>
+    <label>名称 <input name="label" required></label>
+    <label>修正行（CSV：row_id,region,qty,unit_price[,amount]）
+      <textarea name="rows" rows="7" required></textarea>
+    </label>
+    <label>说明 <input name="note" maxlength="1000"></label>
+    <div class="form-actions">
+      <button class="btn" type="button" name="cancel">取消</button>
+      <button class="btn primary" type="submit">发布修正版</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="batch-dialog">
+  <div class="card-head">
+    <h2>批次明细</h2>
+    <p class="muted">批次内容为发布时快照，修正走新批次。</p>
+  </div>
+  <div class="table-wrap">
+    <table class="data">
+      <thead><tr><th>row_id</th><th>region</th><th class="num">qty</th><th class="num">unit_price</th><th class="num">amount</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="form-actions" style="margin-top:14px">
+    <button class="btn close" type="button">关闭</button>
+  </div>
+</dialog>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>
